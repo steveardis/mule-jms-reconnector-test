@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	  xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+      xmlns:spring="http://www.springframework.org/schema/beans"
+      xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/3.3/mule.xsd
+                          http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/3.3/mule-jms.xsd
+                          http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+		                  http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/3.3/mule-quartz.xsd">
+
+
+    <spring:bean name="activeMQConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
+        <spring:property name="brokerURL" value="tcp://localhost:61616" />
+    </spring:bean>
+
+	<jms:activemq-connector name="jmsConnector1"
+	                        specification="1.1"
+	                        connectionFactory-ref="activeMQConnectionFactory"
+	                        persistentDelivery="true">
+		<reconnect-forever frequency="1000" />
+	</jms:activemq-connector>
+
+	<jms:activemq-connector name="jmsConnector2"
+	                        specification="1.1"
+	                        connectionFactory-ref="activeMQConnectionFactory"
+	                        persistentDelivery="true">
+		<reconnect-forever frequency="1000" />
+	</jms:activemq-connector>
+
+	<flow name="reconnector1">
+		<jms:inbound-endpoint queue="reconnector-in" connector-ref="jmsConnector1" />
+		<jms:outbound-endpoint queue="reconnector-out" connector-ref="jmsConnector1" />
+	</flow>
+
+	<flow name="deliveryMessageFlow1">
+		<quartz:inbound-endpoint repeatInterval="1000" jobName="deliveryMessageJob1">
+			<quartz:event-generator-job>
+				<quartz:payload>1</quartz:payload>
+			</quartz:event-generator-job>
+		</quartz:inbound-endpoint>
+		<until-successful objectStore-ref="_fileQueueStore" maxRetries="6000" secondsBetweenRetries="5">
+			<jms:outbound-endpoint queue="test-redelivery1" connector-ref="jmsConnector1" exchange-pattern="one-way" />
+		</until-successful>
+	</flow>
+
+	<flow name="deliveryMessageFlow2">
+		<quartz:inbound-endpoint repeatInterval="1000" jobName="deliveryMessageJob2">
+			<quartz:event-generator-job>
+				<quartz:payload>2</quartz:payload>
+			</quartz:event-generator-job>
+		</quartz:inbound-endpoint>
+		<until-successful objectStore-ref="_fileQueueStore" maxRetries="6000" secondsBetweenRetries="5">
+			<jms:outbound-endpoint queue="test-redelivery2" connector-ref="jmsConnector2" exchange-pattern="one-way" />
+		</until-successful>
+	</flow>
+
+</mule>
