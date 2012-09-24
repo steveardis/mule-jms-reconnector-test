@@ -6,7 +6,7 @@ import org.mule.tck.junit4.FunctionalTestCase;
 
 
 public class JMSConnectorRedeliveryTest extends FunctionalTestCase {
-	private static final boolean TEST = true;
+	private static final boolean TEST = false;
 
 	@Override
 	protected String getConfigResources() {
